@@ -1,13 +1,23 @@
+
 name: Hourly Site Re-indexing
 
 on:
   schedule:
-  - cron: '0 * * * *'
+    - cron: '0 * * * *'
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stack-overflowed-production
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -17,14 +27,60 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Run Sitemap Builder
+      - name: Validate Redirects and Prepare IndexNow Key
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p public
+
+          if [ ! -s public/_redirects ]; then
+            echo "::error::public/_redirects is missing or empty."
+            exit 1
+          fi
+
+          RULE_COUNT=$(grep -cvE '^[[:space:]]*(#.*)?$' public/_redirects || true)
+
+          # Current rules use static source paths.
+          if [ "$RULE_COUNT" -eq 0 ] || [ "$RULE_COUNT" -gt 2000 ]; then
+            echo "::error::Invalid static redirect count: $RULE_COUNT"
+            exit 1
+          fi
+
+          # Match the key already configured in ping-indexnow.js.
+          KEY="8904a3a4e1c54be7922b7edc16d2f0dd"
+          KEY_FILE="${KEY}.txt"
+
+          if [ -f "$KEY_FILE" ]; then
+            cp "$KEY_FILE" "public/$KEY_FILE"
+          elif [ ! -s "public/$KEY_FILE" ]; then
+            printf '%s' "$KEY" > "public/$KEY_FILE"
+          fi
+
+          echo "Redirect rules validated: $RULE_COUNT"
+
+      - name: Generate Sitemap
         run: node build-sitemap.js
 
-      - name: Run IndexNow Ping
-        run: node ping-indexnow.js
+      - name: Verify Deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -s public/sitemap.xml
+          test -s public/_redirects
+          test -s public/8904a3a4e1c54be7922b7edc16d2f0dd.txt
+
+          echo "Sitemap and redirects verified."
 
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy public --project-name=stack-overflowed --commit-dirty=true
+        run: |
+          npx --yes wrangler@4 pages deploy public \
+            --project-name=stack-overflowed \
+            --commit-dirty=true
+
+      - name: Run IndexNow Ping
+        run: node ping-indexnow.js
