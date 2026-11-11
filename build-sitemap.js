@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const DOMAIN = 'https://stack-overflowed.pages.dev';
+const DOMAIN = 'https://stack-overflowed.pageaura.xyz';
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const URLS_FILE = path.join(ROOT, 'urls.txt');
