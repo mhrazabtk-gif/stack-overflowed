@@ -2,9 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const HOST = 'stack-overflowed.pages.dev';
+const HOST = 'stack-overflowed.pageaura.xyz';
 const KEY = '8904a3a4e1c54be7922b7edc16d2f0dd';
-const KEY_LOCATION = `https://stack-overflowed.pages.dev/8904a3a4e1c54be7922b7edc16d2f0dd.txt`;
+const KEY_LOCATION = `https://stack-overflowed.pageaura.xyz/8904a3a4e1c54be7922b7edc16d2f0dd.txt`;
 
 const urlsFile = path.join(__dirname, 'urls.txt');
 let urlList = [];
